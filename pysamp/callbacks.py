@@ -42,17 +42,24 @@ class CallbackRegistry:
     def register_module(self, module: ModuleType) -> None:
         """Register all callbacks in a module, called on import."""
         for name in callback_names:
-            self.register_callback(module, name)
+            callback = getattr(module, name, None)
 
-    def register_callback(self, module: ModuleType, name: str) -> None:
-        """Register a module's callback, called by register_module."""
-        callback = getattr(module, name, None)
+            if not callback:
+                continue
 
-        if not callback:
-            return
+            self.register_callback(callback, name, module.__name__)
 
+    def register_callback(
+        self,
+        callback: Callable[..., None],
+        name: str,
+        module_name: Optional[str] = None,
+    ) -> None:
+        """Register callback, called by register_module for each callback."""
         self._by_callback_name[name].append(callback)
-        self._by_module_name[module.__name__].append(callback)
+
+        if module_name:
+            self._by_module_name[module_name].append(callback)
 
     def dispatch(
         self,

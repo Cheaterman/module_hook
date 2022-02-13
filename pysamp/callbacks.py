@@ -18,13 +18,13 @@ class HookedCallback:
     Calls main callback in "python" module, then registered module callbacks.
     """
     name: str
-    main_callback: Optional[Callable[..., None]]
+    original: Optional[Callable[..., None]]
 
     def __call__(self, *args: Tuple[Any], **kwargs: Dict[str, Any]) -> None:
         """Call the real callback first, then all registered modules'."""
         if(
-            self.main_callback
-            and self.main_callback(*args, **kwargs) is False
+            self.original
+            and self.original(*args, **kwargs) is False
         ):
             return
 
@@ -129,8 +129,8 @@ def hook_callback(module: ModuleType, name: str) -> None:
 
     Makes top level callbacks in the module use callbacks registry.
     """
-    main_callback = getattr(module, name, None)
-    setattr(module, name, HookedCallback(name, main_callback))
+    original = getattr(module, name, None)
+    setattr(module, name, HookedCallback(name, original))
 
 
 def hook() -> None:

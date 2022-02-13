@@ -3,10 +3,10 @@ import warnings
 from importlib.machinery import SOURCE_SUFFIXES, FileFinder, SourceFileLoader
 from types import ModuleType
 
-from .callbacks import callback_registry, hook_callbacks
+from .callbacks import registry
 
 
-__all__ = ('hook_callbacks',)
+_module_being_imported = None
 
 
 class PySAMPImportWarning(RuntimeWarning):
@@ -17,12 +17,15 @@ class PySAMPImportWarning(RuntimeWarning):
 class PySAMPLoader(SourceFileLoader):
     """Custom loader that registers module callbacks on import."""
     def exec_module(self, module: ModuleType) -> None:
+        global _module_being_imported
+        _module_being_imported = module
+
         super().exec_module(module)
 
-        if not self.name.startswith('python.'):
-            return
+        if self.name.startswith('python.'):
+            registry._register_module()
 
-        callback_registry.register_module(module)
+        _module_being_imported = None
 
 
 for module_name in sys.modules:

@@ -1,13 +1,13 @@
 import python
-import pysamp  # noqa: unused
+from pysamp.callbacks import registry
 
 
-def kill_vehicle(vehicleid):
-    # Call the callback in main module, it's hooked by now
+def kill_vehicle(vehicleid: int) -> None:
     python.OnVehicleDeath(vehicleid)
 
 
 if __name__ == '__main__':
     # Some test code
-    import json  # noqa: Test to see if json gets hooked (it shouldn't)
     kill_vehicle(123)
+    registry.unregister('python.vehicles')
+    kill_vehicle(124)

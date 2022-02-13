@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import pysamp
+
 
 callback_names = (
     'OnVehicleDeath',
@@ -26,40 +28,85 @@ class HookedCallback:
         ):
             return
 
-        callback_registry.dispatch(self.name, *args, **kwargs)
+        registry.dispatch(self.name, *args, **kwargs)
+
+
+@dataclass
+class RegisteredCallback:
+    """A registered callback. Wraps user-provided callables in the registry.
+
+    Used to track the actual (SAMP) callback name a callable is registered to.
+    """
+    name: str
+    callback: Callable[..., Optional[bool]]
+
+    def __call__(
+        self,
+        *args: Tuple[Any],
+        **kwargs: Dict[str, Any]
+    ) -> Optional[bool]:
+        return self.callback(*args, **kwargs)
 
 
 @dataclass
 class CallbackRegistry:
     """A registry for module callbacks. Gets populated on pysamp import."""
-    _by_module_name: Dict[str, List[Callable[..., None]]] = field(
+    _by_group: Dict[str, List[RegisteredCallback]] = field(
         default_factory=lambda: defaultdict(list)
     )
-    _by_callback_name: Dict[str, List[Callable[..., None]]] = field(
+    _by_callback_name: Dict[str, List[RegisteredCallback]] = field(
         default_factory=lambda: defaultdict(list)
     )
 
-    def register_module(self, module: ModuleType) -> None:
+    def _register_module(self) -> None:
         """Register all callbacks in a module, called on import."""
+        module = pysamp._module_being_imported
+
         for name in callback_names:
             callback = getattr(module, name, None)
 
             if not callback:
                 continue
 
-            self.register_callback(callback, name, module.__name__)
+            self.register_callback(name, callback)
 
     def register_callback(
         self,
-        callback: Callable[..., None],
         name: str,
-        module_name: Optional[str] = None,
+        callback: Callable[..., None],
+        group: Optional[Any] = None,
     ) -> None:
-        """Register callback, called by register_module for each callback."""
-        self._by_callback_name[name].append(callback)
+        """Register callback, called by register_module for each callback.
 
-        if module_name:
-            self._by_module_name[module_name].append(callback)
+        group is used to group callbacks for later unregistration. If not
+        specified, it will default to the name of the module currently being
+        imported, or raise a ValueError if no import is taking place.
+        """
+        if not group:
+            module = pysamp._module_being_imported
+
+            if not module:
+                raise ValueError(
+                    f'No module is being imported and group is {group!r}.'
+                )
+
+            group = module.__name__
+
+        registered_callback = RegisteredCallback(name, callback)
+        self._by_callback_name[name].append(registered_callback)
+        self._by_group[group].append(registered_callback)
+
+    def unregister(self, group: Any) -> None:
+        callbacks = self._by_group.get(group)
+
+        if not callbacks:
+            raise KeyError(f'Group {group!r} does not exist.')
+
+        registry = self._by_callback_name
+
+        for callback in callbacks:
+            name = callback.name
+            registry[name].remove(callback)
 
     def dispatch(
         self,
@@ -82,7 +129,7 @@ def hook_callback(module: ModuleType, name: str) -> None:
     setattr(module, name, HookedCallback(name, main_callback))
 
 
-def hook_callbacks() -> None:
+def hook() -> None:
     """Hooks all callbacks from user's "python" module.
 
     Hooks are later used to call registered callbacks inside submodules.
@@ -93,4 +140,4 @@ def hook_callbacks() -> None:
         hook_callback(python, name)
 
 
-callback_registry = CallbackRegistry()
+registry = CallbackRegistry()

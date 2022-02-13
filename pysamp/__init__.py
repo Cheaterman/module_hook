@@ -11,7 +11,6 @@ _module_being_imported = None
 
 class PySAMPImportWarning(RuntimeWarning):
     """Gets issued if it seems like import order is incorrect."""
-    pass
 
 
 class PySAMPLoader(SourceFileLoader):

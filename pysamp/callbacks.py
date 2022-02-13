@@ -106,11 +106,11 @@ class CallbackRegistry:
         if not callbacks:
             raise KeyError(f'Group {group!r} does not exist.')
 
-        registry = self._by_callback_name
+        by_name = self._by_callback_name
 
         for callback in callbacks:
             name = callback.name
-            registry[name].remove(callback)
+            by_name[name].remove(callback)
 
     def dispatch(
         self,

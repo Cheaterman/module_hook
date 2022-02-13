@@ -97,6 +97,10 @@ class CallbackRegistry:
         self._by_group[group].append(registered_callback)
 
     def unregister(self, group: Any) -> None:
+        """Unregisters all callbacks from given group.
+
+        Raises KeyError if group doesn't exist.
+        """
         callbacks = self._by_group.get(group)
 
         if not callbacks:
